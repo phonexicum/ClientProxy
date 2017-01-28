@@ -4,22 +4,21 @@
   "author": {
     "email": "phonexicum@yandex.ru",
     "name": "phonexicum",
-    "url": ""
+    "url": "phonexicum.github.io"
   },
   "description": "Web-proxy for client side",
   "keywords": [
-    "http",
-    "proxy",
-    "server",
-    "client"
+    "http", "proxy", "server", "client"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/phonexicum/ClientProxy.git"
   },
+  "license": "MIT",
   "dependencies": {
     "http-proxy": "^1.16.2",
     "tmp": "^0.0.31"
   },
+  "main": "proxy.js",
   "private": true
 }

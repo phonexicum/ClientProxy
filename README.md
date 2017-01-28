@@ -6,16 +6,17 @@ It is based on nodejs library [http-proxy](https://www.npmjs.com/package/http-pr
 
 ## Table of Contents
 
-1. [Usage](#usage)
+1. [Usage example](#usage)
 1. [Traffic path](#traffic-path)
 1. [Drawbacks](#drawbacks)
+1. [API](#api)
 
-## Usage
+## Usage example
 
 ### Standalone usage
 
 ```
-nodejs proxy.js 9000
+node proxy.js 9000
 ```
 
 By default CA key and certificate are searched in files *'proxy-cert/proxy.key'* and *'proxy-cert/proxy.crt'*.
@@ -23,7 +24,7 @@ By default CA key and certificate are searched in files *'proxy-cert/proxy.key'*
 ### Usage as node module
 
 ``` JavaScript
-const ClientProxy = require('proxy.js');
+const ClientProxy = require('./proxy.js');
 let proxy = new ClientProxy((req, res) => {
         // http intercepter
         console.log('http connection to host:', req.headers.host);
@@ -40,13 +41,15 @@ let proxy = new ClientProxy((req, res) => {
         keySize: 2048,
         reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
     }
-);
-proxy.run(9000);
-// Do smth
-proxy.stop();
-// Do smth
-proxy.run(9001);
-proxy.stop();
+).start(0);
+
+proxy.on('listening', () => {
+    console.log ('proxy server started at port:', proxy.webProxyPort);
+});
+
+proxy.once('listening', () => {
+    proxy.stop().start(9000);
+});
 ```
 
 ## Traffic path
@@ -70,8 +73,44 @@ proxy.stop();
     1. creation of custom https server
     2. using network stack to resend traffic to https server on local machine
 
-    Why?: To easily use sequence ***https server **->** http-proxy lib **->** server***
+    Why?: To easily use sequence ***https server -> http-proxy lib -> server***
 
 1. For ssl keys and certificate generation third-party binary **openssl** is used, it is executed using child_process.execFileSync.
 
 1. I never tested correctness of proxying WebSockets
+
+## API
+
+Module provide `ClientProxy` class.
+
+* Functions:
+
+    `new ClientProxy(...);` - look example in [usage example](#usage-as-node-module), all constructor parameters are not required, their default values can be seen in usage example.
+
+    `ClientProxy.start(portNumber)` - starts web proxy on specified port number (if port equals to 0, OS will choose random port).
+
+    `ClientProxy.stop()` - stops web proxy (proxy can be started again on other port number)
+    
+    Methods `start` and `stop` can be chained.
+
+* Interceptors (can be redefined):
+
+    `ClientProxy.httpInterceptor (req, res);`
+
+    `ClientProxy.httpsInterceptor (req, res);`
+
+* Variables:
+
+    `ClientProxy.webProxyPort` - equals to `0`, until 'listening' event fired
+
+* Events:
+
+    `'listening'`: emits after ClientProxy http server started and ready to work.
+
+    `ClientProxy.webProxyPort` will show correct port number of proxy server after this event (in case you specified port number = `0` while starting proxy).
+
+* Internals:
+
+    `ClientProxy.webProxy` - http server object used to listen requests to be proxied. ***Modify it at your own risk.***
+
+    `ClientProxy.proxyServer` - http-proxy lib proxy server instance, used to forward requests further. ***Modify it at your own risk.***
