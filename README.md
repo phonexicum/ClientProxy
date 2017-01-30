@@ -95,9 +95,9 @@ Module provide `ClientProxy` class.
 
 * Interceptors (can be redefined):
 
-    `ClientProxy.httpInterceptor (req, res);`
+    `ClientProxy.httpInterceptor (req, res);` - if return value === false, there will be no further proxying.
 
-    `ClientProxy.httpsInterceptor (req, res);`
+    `ClientProxy.httpsInterceptor (req, res);` - if return value === false, there will be no further proxying.
 
 * Variables:
 

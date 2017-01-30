@@ -149,8 +149,11 @@ class ClientProxy extends Events {
     _createWebProxy () {
         
         this.webProxy = http.createServer((req, res) => {
-            this.httpInterceptor (req, res);
-            this.proxyServer.web(req, res, {target: 'http://' + req.headers.host});
+            let ret = this.httpInterceptor (req, res);
+            if (ret !== false)
+                this.proxyServer.web(req, res, {target: 'http://' + req.headers.host});
+            else
+                res.end();
         });
 
         this.webProxy.addListener('connect', (req, ctlSocket, head) => {
@@ -162,13 +165,17 @@ class ClientProxy extends Events {
             const httpsOptions = this._sslOptionsStorage.getOption(req.headers.host);
             let httpsProxy = https.createServer(httpsOptions, (request, response) => {
                 
-                this.httpsInterceptor (request, response);
+                let ret = this.httpsInterceptor (request, response);
                 
-                this.proxyServer.web(request, response, {
-                    target: 'https://' + req.headers.host,
-                    ssl: httpsOptions,
-                    secure: false // I don't want to verify the ssl certs
-                });
+                if (ret !== false)
+                    this.proxyServer.web(request, response, {
+                        target: 'https://' + req.headers.host,
+                        ssl: httpsOptions,
+                        secure: false // I don't want to verify the ssl certs
+                    });
+                else
+                    res.end();
+                    
             }).listen(0);
             if (debug) console.log ('https proxy initialized.');
             
