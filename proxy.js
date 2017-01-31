@@ -162,7 +162,9 @@ class ClientProxy extends Events {
             if (debug) console.log ('CONNECT req.headers: ', req.headers);
             // if (debug) console.log ('CONNECT head.length: ', head.length);
 
-            const httpsOptions = this._sslOptionsStorage.getOption(req.headers.host);
+            let parseHostName = /(.*):(\d*)/i.exec(req.headers.host);
+            let hostName = parseHostName !== null && parseHostName[2] === '443' ? parseHostName[1] : parseHostName[0];
+            const httpsOptions = this._sslOptionsStorage.getOption(hostName);
             let httpsProxy = https.createServer(httpsOptions, (request, response) => {
                 
                 let ret = this.httpsInterceptor (request, response);
@@ -175,7 +177,7 @@ class ClientProxy extends Events {
                     });
                 else
                     res.end();
-                    
+
             }).listen(0);
             if (debug) console.log ('https proxy initialized.');
             
@@ -212,13 +214,13 @@ class ClientProxy extends Events {
                 });
 
                 ctlSocket.on('error', (error) => {
-                    console.error('Error from http "CONNECT" socket, host: ', req.headers.host);
-                    socketToHttpsProxy.end();
+                    console.error('Error from http "CONNECT" socket, host: ', req.headers.host, 'Error: ', error);
+                    // socketToHttpsProxy.end();
                 });
 
                 socketToHttpsProxy.on('error', (error) => {
-                    console.error('Error from https socket, host: ', req.headers.host);
-                    ctlSocket.end();
+                    console.error('Error from https socket, host: ', req.headers.host, 'Error: ', error);
+                    // ctlSocket.end();
                 });
             });
         });
