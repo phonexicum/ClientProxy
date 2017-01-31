@@ -99,7 +99,7 @@ class ClientProxy extends Events {
         }, hostKeyOptions = { // Options for key to be generated as server key
             keySize: 2048,
             reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
-        }) {
+        }, quietNetErrors = true) {
 
         super();
 
@@ -107,6 +107,7 @@ class ClientProxy extends Events {
         this.httpsInterceptor = httpsInterceptor;
         this._CAkeyOptions = CAkeyOptions;
         this._hostKeyOptions = hostKeyOptions;
+        this.quietNetErrors = quietNetErrors;
         this.webProxyPort = 0;
 
         this._checkCAcertificate();
@@ -214,12 +215,14 @@ class ClientProxy extends Events {
                 });
 
                 ctlSocket.on('error', (error) => {
-                    console.error('Error from http "CONNECT" socket, host: ', req.headers.host, 'Error: ', error);
+                    if (! this.quietNetErrors)
+                        console.error('Error from http "CONNECT" socket, host: ', req.headers.host, 'Error: ', error);
                     // socketToHttpsProxy.end();
                 });
 
                 socketToHttpsProxy.on('error', (error) => {
-                    console.error('Error from https socket, host: ', req.headers.host, 'Error: ', error);
+                    if (! this.quietNetErrors)
+                        console.error('Error from https socket, host: ', req.headers.host, 'Error: ', error);
                     // ctlSocket.end();
                 });
             });
@@ -280,7 +283,8 @@ if (!module.parent) {
         }, { // hostKeyOptions - options for server key generation
             keySize: 2048,
             reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
-        }
+        },
+        false // quietNetErrors
     );
 
     clientProxy.start(webProxyPort);

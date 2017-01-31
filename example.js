@@ -14,7 +14,8 @@ let proxy = new ClientProxy((req, res) => {
     }, { // hostKeyOptions - options for server key generation
         keySize: 2048,
         reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
-    }
+    },
+    true // quietNetErrors
 ).start(0);
 
 proxy.on('listening', () => {
