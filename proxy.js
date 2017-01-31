@@ -149,10 +149,10 @@ class ClientProxy extends Events {
     _createWebProxy () {
         
         this.webProxy = http.createServer((req, res) => {
-            let ret = this.httpInterceptor (req, res);
+            let ret = this.httpInterceptor(req, res);
             if (ret !== false)
                 this.proxyServer.web(req, res, {target: 'http://' + req.headers.host});
-            else
+            else if (res.finished === false)
                 res.end();
         });
 
@@ -167,16 +167,16 @@ class ClientProxy extends Events {
             const httpsOptions = this._sslOptionsStorage.getOption(hostName);
             let httpsProxy = https.createServer(httpsOptions, (request, response) => {
                 
-                let ret = this.httpsInterceptor (request, response);
+                let ret = this.httpsInterceptor(request, response);
                 
                 if (ret !== false)
                     this.proxyServer.web(request, response, {
-                        target: 'https://' + req.headers.host,
+                        target: 'https://' + request.headers.host,
                         ssl: httpsOptions,
                         secure: false // I don't want to verify the ssl certs
                     });
-                else
-                    res.end();
+                else if (response.finished === false)
+                    response.end();
 
             }).listen(0);
             if (debug) console.log ('https proxy initialized.');
