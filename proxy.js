@@ -13,6 +13,7 @@ const net = require('net');
 const http = require('http');
 const https = require('https');
 const Events = require('events');
+const url = require('url');
 
 const tmp = require('tmp');
 const httpProxy = require('http-proxy');
@@ -149,6 +150,11 @@ class ClientProxy extends Events {
     // ================================================================================================================
     _createWebProxy () {
         
+        // This is necessary or proxyServer can throw exception and proxy process will die
+        this.proxyServer.on('error', error => {
+            console.log('Error:', error);
+        });
+
         this.webProxy = http.createServer((req, res) => {
             let ret = this.httpInterceptor(req, res);
             if (ret !== false)
@@ -262,7 +268,6 @@ class ClientProxy extends Events {
 
     // ================================================================================================================
 }
-module.exports = ClientProxy;
 
 // ====================================================================================================================
 if (!module.parent) {
@@ -270,11 +275,17 @@ if (!module.parent) {
 
     let clientProxy = new ClientProxy((req, res) => {
             // http intercepter
-            console.log('http connection to host:', req.headers.host, 'url:', req.url);
+            console.log('connection url:', req.url);
 
         }, (req, res) => {
             // https intercepter
-            console.log('https connection to host:', req.headers.host, 'url:', req.url);
+            
+            let reqUrl = url.parse(req.url);
+            reqUrl.protocol = 'https:';
+            reqUrl.host = req.headers.host;
+            reqUrl = url.parse(url.format(reqUrl));
+
+            console.log('connection url:', reqUrl.href);
 
         }, { // CAkeyOptions
             key: 'proxy-cert/proxy.key',
@@ -292,3 +303,5 @@ if (!module.parent) {
         console.log ('Proxy started on port:', clientProxy.webProxyPort);
     });
 }
+
+module.exports = ClientProxy;
