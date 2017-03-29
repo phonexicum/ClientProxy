@@ -8,9 +8,9 @@ let proxy = new ClientProxy((req, res) => {
         console.log('https connection to host:', req.headers.host);
 
     }, { // CAkeyOptions
-        key: 'proxy-cert/proxy.key',
+        key: '_proxy-cert/proxy.key',
         keySize: 2048,
-        cert: 'proxy-cert/proxy.crt'
+        cert: '_proxy-cert/proxy.crt'
     }, { // hostKeyOptions - options for server key generation
         keySize: 2048,
         reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key

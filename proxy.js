@@ -114,7 +114,7 @@ class ClientProxy extends Events {
         this._checkCAcertificate();
 
         this.proxyServer = httpProxy.createProxyServer({});
-        this._sslOptionsStorage = new SSLOptions(this.CAkeyOptions, this.hostKeyOptions);
+        this._sslOptionsStorage = new SSLOptions(this._CAkeyOptions, this._hostKeyOptions);
         this._createWebProxy();
     }
 
