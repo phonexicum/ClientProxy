@@ -90,30 +90,47 @@ class SSLOptions {
 
 
 // ====================================================================================================================
+function setObjFuncWatch(res, func, event_name){
+    let original = res[func];
+
+    res[func] = function() {
+        res.emit(event_name);
+        original.apply(res, arguments);
+    };
+};
+
+
+// ====================================================================================================================
 class ClientProxy extends Events {
 
     // ================================================================================================================
-    constructor(httpInterceptor, httpsInterceptor, CAkeyOptions = {
+    constructor(httpReqInterceptor, httpsReqInterceptor, httpResInterceptor, httpsResInterceptor, CAkeyOptions = {
             key: 'proxy-cert/proxy.key',
             keySize: 2048,
             cert: 'proxy-cert/proxy.crt'
         }, hostKeyOptions = { // Options for key to be generated as server key
             keySize: 2048,
             reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
-        }, quietNetErrors = true) {
+        },
+        checkServerCerts = true,
+        quietNetErrors = true) {
 
         super();
 
-        this.httpInterceptor = httpInterceptor;
-        this.httpsInterceptor = httpsInterceptor;
+        this.httpReqInterceptor = httpReqInterceptor;
+        this.httpResInterceptor = httpResInterceptor;
+        this.httpsReqInterceptor = httpsReqInterceptor;
+        this.httpsResInterceptor = httpsResInterceptor;
         this._CAkeyOptions = CAkeyOptions;
         this._hostKeyOptions = hostKeyOptions;
-        this.quietNetErrors = quietNetErrors;
+        this._checkServerCerts = checkServerCerts;
+        this._quietNetErrors = quietNetErrors;
         this.webProxyPort = 0;
 
         this._checkCAcertificate();
 
-        this.proxyServer = httpProxy.createProxyServer({});
+        this._proxyServer = httpProxy.createProxyServer({});
+
         this._sslOptionsStorage = new SSLOptions(this._CAkeyOptions, this._hostKeyOptions);
         this._createWebProxy();
     }
@@ -151,19 +168,30 @@ class ClientProxy extends Events {
     _createWebProxy () {
         
         // This is necessary or proxyServer can throw exception and proxy process will die
-        this.proxyServer.on('error', error => {
+        this._proxyServer.on('error', error => {
+            console.log('Error:', error);
+        });
+        this._proxyServer.on('error', error => {
             console.log('Error:', error);
         });
 
-        this.webProxy = http.createServer((req, res) => {
-            let ret = this.httpInterceptor(req, res);
+        this._webProxy = http.createServer((req, res) => {
+            let ret = this.httpReqInterceptor(req, res);
+            
+            res.once('headersEnded', () => {
+                this.httpResInterceptor(req, res);
+            });
+            setObjFuncWatch(res, 'writeHead', 'headersEnded');
+            setObjFuncWatch(res, 'write', 'headersEnded');
+            setObjFuncWatch(res, 'end', 'headersEnded');
+
             if (ret !== false)
-                this.proxyServer.web(req, res, {target: 'http://' + req.headers.host});
+                this._proxyServer.web(req, res, {target: 'http://' + req.headers.host});
             else if (res.finished === false)
                 res.end();
         });
 
-        this.webProxy.addListener('connect', (req, ctlSocket, head) => {
+        this._webProxy.addListener('connect', (req, ctlSocket, head) => {
             
             if (debug) console.log ('http "CONNECT" method.');
             if (debug) console.log ('CONNECT req.headers: ', req.headers);
@@ -172,15 +200,23 @@ class ClientProxy extends Events {
             let parseHostName = /(.*):(\d*)/i.exec(req.headers.host);
             let hostName = parseHostName !== null && parseHostName[2] === '443' ? parseHostName[1] : parseHostName[0];
             const httpsOptions = this._sslOptionsStorage.getOption(hostName);
+            
             let httpsProxy = https.createServer(httpsOptions, (request, response) => {
                 
-                let ret = this.httpsInterceptor(request, response);
+                let ret = this.httpsReqInterceptor(request, response);
+
+                response.once('headersEnded', () => {
+                    this.httpsResInterceptor(request, response);
+                });
+                setObjFuncWatch(response, 'writeHead', 'headersEnded');
+                setObjFuncWatch(response, 'write', 'headersEnded');
+                setObjFuncWatch(response, 'end', 'headersEnded');
                 
                 if (ret !== false)
-                    this.proxyServer.web(request, response, {
+                    this._proxyServer.web(request, response, {
                         target: 'https://' + request.headers.host,
                         ssl: httpsOptions,
-                        secure: false // I don't want to verify the ssl certs
+                        secure: this._checkServerCerts
                     });
                 else if (response.finished === false)
                     response.end();
@@ -221,48 +257,49 @@ class ClientProxy extends Events {
                 });
 
                 ctlSocket.on('error', (error) => {
-                    if (! this.quietNetErrors)
+                    if (! this._quietNetErrors)
                         console.error('Error from http "CONNECT" socket, host: ', req.headers.host, 'Error: ', error);
                     // socketToHttpsProxy.end();
                 });
 
                 socketToHttpsProxy.on('error', (error) => {
-                    if (! this.quietNetErrors)
+                    if (! this._quietNetErrors)
                         console.error('Error from https socket, host: ', req.headers.host, 'Error: ', error);
                     // ctlSocket.end();
                 });
             });
         });
 
-        this.webProxy.on('listening', () => {
-            this.webProxyPort = this.webProxy.address().port;
+        this._webProxy.on('listening', () => {
+            this.webProxyPort = this._webProxy.address().port;
             this.emit('listening');
         });
 
         // proxy websockets
-        this.webProxy.on('upgrade', (req, socket, head) => {
-            this.proxyServer.ws(req, socket, head);
+        // MARK: Never tested websockets
+        this._webProxy.on('upgrade', (req, socket, head) => {
+            this.httpProxyServer.ws(req, socket, head);
         });
 
         // easy websockets proxy
         // let ws_server = http.createServer((req, res) => {
-        //     this.proxyServer.web(req, res, { target: 'ws://' + req.headers.host, ws: true });
+        //     this.httpProxyServer.web(req, res, { target: 'ws://' + req.headers.host, ws: true });
         // });
         // ws_server.on('upgrade', (req, socket, head) => {
-        //     this.proxyServer.ws(req, socket, head);
+        //     this.httpProxyServer.ws(req, socket, head);
         // });
         // ws_server.listen(webProxyPort);
     }
 
     // ================================================================================================================
     start(portNumber){
-        this.webProxy.listen(portNumber);
+        this._webProxy.listen(portNumber);
         return this;
     }
 
     // ================================================================================================================
     stop(){
-        this.webProxy.close();
+        this._webProxy.close();
         return this;
     }
 
@@ -274,11 +311,11 @@ if (!module.parent) {
     const webProxyPort = process.argv.length === 3 ? parseInt(process.argv[2]) : 0;
 
     let clientProxy = new ClientProxy((req, res) => {
-            // http intercepter
+            // http request intercepter
             console.log('connection url:', req.url);
 
         }, (req, res) => {
-            // https intercepter
+            // https request intercepter
             
             let reqUrl = url.parse(req.url);
             reqUrl.protocol = 'https:';
@@ -286,6 +323,14 @@ if (!module.parent) {
             reqUrl = url.parse(url.format(reqUrl));
 
             console.log('connection url:', reqUrl.href);
+
+        }, (req, res) => {
+            // http response intercepter
+            res.removeHeader('Date');
+
+        }, (req, res) => {
+            // https response intercepter
+            res.removeHeader('Date');
 
         }, { // CAkeyOptions
             key: 'proxy-cert/proxy.key',
@@ -295,6 +340,7 @@ if (!module.parent) {
             keySize: 2048,
             reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
         },
+        false, // checkServerCerts
         false // quietNetErrors
     );
 

@@ -1,11 +1,19 @@
 const ClientProxy = require('./proxy.js');
 let proxy = new ClientProxy((req, res) => {
-        // http intercepter
+        // http request intercepter
         console.log('http connection to host:', req.headers.host);
 
     }, (req, res) => {
-        // https intercepter
+        // https request intercepter
         console.log('https connection to host:', req.headers.host);
+
+    }, (req, res) => {
+        // http response intercepter
+        res.removeHeader('Date');
+
+    }, (req, res) => {
+        // https response intercepter
+        res.removeHeader('Date');
 
     }, { // CAkeyOptions
         key: '_proxy-cert/proxy.key',
@@ -15,6 +23,7 @@ let proxy = new ClientProxy((req, res) => {
         keySize: 2048,
         reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
     },
+    false, // checkServerCerts
     true // quietNetErrors
 ).start(0);
 

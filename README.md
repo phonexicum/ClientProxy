@@ -33,6 +33,14 @@ let proxy = new ClientProxy((req, res) => {
         // https intercepter
         console.log('https connection to host:', req.headers.host);
 
+    }, (req, res) => {
+        // http response intercepter
+        res.removeHeader('Date');
+
+    }, (req, res) => {
+        // https response intercepter
+        res.removeHeader('Date');
+
     }, { // CAkeyOptions
         key: 'proxy-cert/proxy.key',
         keySize: 2048,
@@ -41,6 +49,7 @@ let proxy = new ClientProxy((req, res) => {
         keySize: 2048,
         reuseCAkey: true // flag indicating if proxy can reuse CA private key as server key
     },
+    false, // check server certificate
     true // quietNetErrors
 ).start(0);
 
@@ -94,11 +103,19 @@ Module provide `ClientProxy` class.
     
     Methods `start` and `stop` can be chained.
 
-* Interceptors (can be redefined):
+* Interceptors:
 
-    `ClientProxy.httpInterceptor (req, res);` - if return value === false, there will be no further proxying, you will have to process request on your own.
+    `ClientProxy.httpReqInterceptor (req, res);` - if return value === false, there will be no further proxying, you will have to process request on your own.
 
-    `ClientProxy.httpsInterceptor (req, res);` - if return value === false, there will be no further proxying, you will have to process request on your own.
+    `ClientProxy.httpsReqInterceptor (req, res);` - if return value === false, there will be no further proxying, you will have to process request on your own.
+
+    request intercepters are called after webProxy finished sending headers to browser and ready to send data or close connection
+
+    you ***can not*** modify request, you ***can not*** use res.end or res.write or res.writeHead, you ***can*** influence header
+
+    `ClientProxy.httpResInterceptor (req, res);`
+
+    `ClientProxy.httpsResInterceptor (req, res);`
 
 * Variables:
 
@@ -108,10 +125,10 @@ Module provide `ClientProxy` class.
 
     `'listening'`: emits after ClientProxy http server started and ready to work.
 
-    `ClientProxy.webProxyPort` will show correct port number of proxy server after this event (in case you specified port number = `0` while starting proxy).
+    `clientProxy.webProxyPort` will show correct port number of proxy server after this event (in case you specified port number = `0` while starting proxy).
 
 * Internals:
 
-    `ClientProxy.webProxy` - http server object used to listen requests to be proxied. ***Modify it at your own risk.***
+    `clientProxy._webProxy` - http server object used to listen requests to be proxied. ***Modify it at your own risk.***
 
-    `ClientProxy.proxyServer` - http-proxy lib proxy server instance, used to forward requests further. ***Modify it at your own risk.***
+    `clientProxy._proxyServer` - http-proxy lib proxy server instance, used to forward requests further. ***Modify it at your own risk.***
