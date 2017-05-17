@@ -2,7 +2,6 @@
 
 const debug = false;
 
-
 // ====================================================================================================================
 // Includes
 
@@ -16,6 +15,7 @@ const Events = require('events');
 const url = require('url');
 
 const tmp = require('tmp');
+const deepcopy = require('deepcopy');
 const httpProxy = require('http-proxy');
 
 
@@ -39,7 +39,7 @@ class SSLOptions {
     // ================================================================================================================
     getOption (host) {
         if (host in this._hostsSSLOptions)
-            return this._hostsSSLOptions[host];
+            return deepcopy(this._hostsSSLOptions[host]);
 
         if (debug) console.log('Generating new certificate for host: "' + host + '"');
 
@@ -61,7 +61,7 @@ class SSLOptions {
             '-new',
             '-key', serverKeyPath,
             '-out', tmpDir.name + '/server.csr',
-            '-subj', '/C=RU/ST=Russia/L=Moscow/O=ClientProxy/OU=proxy/CN=localhost.com/emailAddress=' + host
+            '-subj', '/C=RU/ST=Russia/L=Moscow/O=ClientProxy/OU=proxy/CN=' + host
         ], debug ? {stdio: 'inherit'} : {stdio: 'pipe'});
 
         // Sign the server request with root CA
@@ -82,7 +82,7 @@ class SSLOptions {
         if (debug) console.log('Certificate for host: "' + host + '" successfully generated.');
         childProcess.execFileSync('rm', ['-R', tmpDir.name + '/'], debug ? {stdio: 'inherit'} : {stdio: 'pipe'});
         // tmpDir.removeCallback();
-        return this._hostsSSLOptions[host];
+        return deepcopy(this._hostsSSLOptions[host]);
     }
 
     // ================================================================================================================
@@ -156,7 +156,7 @@ class ClientProxy extends Events {
                 '-nodes',
                 '-days', '365000',
                 '-key', this._CAkeyOptions.key,
-                '-subj', '/C=RU/ST=Russia/L=Moscow/O=ClientProxy/OU=proxy/CN=localhost.com/emailAddress=localhost@localhost.com',
+                '-subj', '/C=RU/ST=Russia/L=Moscow/O=ClientProxy/OU=proxy/CN=localhost.com',
                 '-out', this._CAkeyOptions.cert
             ], {stdio: 'inherit'});
         } else {
