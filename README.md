@@ -1,8 +1,10 @@
 # ClientProxy
 
-This is nodejs based client-side proxy for http, https and *probably* web-sockets.
+This is NodeJS based client-side proxy for http/https and *probably* web-sockets.
 
 It is based on nodejs library [http-proxy](https://www.npmjs.com/package/http-proxy) (it is server side proxy server).
+
+Thanks to *newspaint* for the article [Node.JS HTTP and HTTPS Proxy](https://newspaint.wordpress.com/2012/11/05/node-js-http-and-https-proxy/) where he shows an example of creating http-proxy.
 
 ## Table of Contents
 
